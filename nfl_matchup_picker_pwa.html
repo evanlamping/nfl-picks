@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full w-full select-none overflow-hidden touch-none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iOS & PWA Meta Tags for Fullscreen Standalone App -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NFL Picks">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="./manifest.json">
+    
+    <title>NFL Matchup Picker PWA</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'pulse-ring': 'pulseRing 0.6s cubic-bezier(0, 0, 0.2, 1) forwards',
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-up': 'slideUp 0.3s ease-out forwards'
+                    },
+                    keyframes: {
+                        pulseRing: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0.9' },
+                            '100%': { transform: 'scale(1.8)', opacity: '0' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* iOS Safari Safe Area Insets and Fullscreen Setup */
+        body {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            background-color: #0b0f19;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Pulse Click Effect Wave */
+        .pulse-wave {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.45);
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Custom Scrollbar for Modal and Lists */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-full w-full text-white flex flex-col justify-between overflow-hidden relative">
+
+    <!-- Header Bar / App Controls -->
+    <header class="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-auto">
+        <div class="flex items-center space-x-2">
+            <span class="bg-red-600 text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">NFL</span>
+            <span id="window-label" class="text-xs font-semibold text-gray-200 backdrop-blur-md bg-black/40 px-2.5 py-1 rounded-md border border-white/10">Loading Week...</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <!-- PWA Files Download / GitHub Pages Instructions Button -->
+            <button onclick="toggleDeployModal(true)" class="p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white text-xs flex items-center space-x-1.5 border border-white/10 backdrop-blur-md transition-all active:scale-95" title="GitHub Pages & PWA Files">
+                <i class="fa-solid fa-code-branch text-emerald-400"></i>
+                <span class="text-xs font-medium hidden sm:inline">GH Pages Setup</span>
+            </button>
+            <!-- Refresh Schedule Button -->
+            <button onclick="loadNFLSchedule(true)" class="p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white border border-white/10 backdrop-blur-md transition-all active:scale-95" title="Refresh Live Schedule">
+                <i class="fa-solid fa-arrows-rotate text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN INTERACTIVE CONTAINER -->
+    <main id="app-container" class="relative w-full h-full flex flex-col justify-between flex-1">
+        <!-- Loader Screen -->
+        <div id="loader" class="absolute inset-0 z-40 bg-slate-950 flex flex-col items-center justify-center space-y-4">
+            <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-slate-300 font-medium text-sm animate-pulse">Fetching NFL Matchups...</p>
+        </div>
+
+        <!-- MATCHUP VIEW (SPLIT SCREEN) -->
+        <div id="matchup-view" class="w-full h-full flex flex-col hidden relative">
+            <!-- Game Progress Bar & Counter -->
+            <div class="absolute top-12 left-0 right-0 z-20 flex justify-center pointer-events-none">
+                <div class="bg-black/60 backdrop-blur-md border border-white/15 px-4 py-1.5 rounded-full flex items-center space-x-3 text-xs font-medium shadow-xl">
+                    <span id="game-progress-text" class="text-emerald-400 font-bold">Game 1 of 16</span>
+                    <span class="text-gray-400">|</span>
+                    <span id="game-time-text" class="text-slate-200">Thu, 8:15 PM</span>
+                </div>
+            </div>
+
+            <!-- TOP HALF: AWAY TEAM -->
+            <button id="away-card" onclick="handlePick('away', event)" class="relative flex-1 w-full flex flex-col items-center justify-center p-6 transition-all duration-200 active:brightness-110 overflow-hidden outline-none">
+                <div id="away-bg" class="absolute inset-0 bg-slate-800 transition-colors duration-300"></div>
+                <!-- Gradient overlay for contrast -->
+                <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/30 pointer-events-none"></div>
+                
+                <div class="relative z-10 flex flex-col items-center text-center space-y-3 pointer-events-none transform transition-transform duration-200">
+                    <span class="text-xs uppercase tracking-widest font-extrabold text-white/70 bg-black/30 px-3 py-1 rounded-full border border-white/10">Away</span>
+                    <img id="away-logo" src="" alt="Away Team" class="w-28 h-28 sm:w-36 sm:h-36 object-contain drop-shadow-2xl max-h-[35vh]">
+                    <div class="space-y-1">
+                        <h2 id="away-name" class="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">Away Team</h2>
+                        <p id="away-record" class="text-sm sm:text-base font-semibold text-white/80">(0-0)</p>
+                    </div>
+                </div>
+            </button>
+
+            <!-- VS DIVIDER BADGE -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
+                <div class="w-10 h-10 rounded-full bg-slate-900 border-2 border-white/30 text-white font-black text-xs flex items-center justify-center shadow-2xl">
+                    VS
+                </div>
+            </div>
+
+            <!-- BOTTOM HALF: HOME TEAM -->
+            <button id="home-card" onclick="handlePick('home', event)" class="relative flex-1 w-full flex flex-col items-center justify-center p-6 transition-all duration-200 active:brightness-110 overflow-hidden outline-none">
+                <div id="home-bg" class="absolute inset-0 bg-blue-900 transition-colors duration-300"></div>
+                <!-- Gradient overlay for contrast -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/30 pointer-events-none"></div>
+                
+                <div class="relative z-10 flex flex-col items-center text-center space-y-3 pointer-events-none transform transition-transform duration-200">
+                    <div class="space-y-1">
+                        <h2 id="home-name" class="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">Home Team</h2>
+                        <p id="home-record" class="text-sm sm:text-base font-semibold text-white/80">(0-0)</p>
+                    </div>
+                    <img id="home-logo" src="" alt="Home Team" class="w-28 h-28 sm:w-36 sm:h-36 object-contain drop-shadow-2xl max-h-[35vh]">
+                    <span class="text-xs uppercase tracking-widest font-extrabold text-white/70 bg-black/30 px-3 py-1 rounded-full border border-white/10">Home</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- FINAL REVIEW SCREEN -->
+        <div id="review-view" class="w-full h-full flex flex-col bg-slate-950 p-4 pt-16 pb-6 overflow-y-auto hidden">
+            <div class="max-w-4xl mx-auto w-full flex flex-col flex-1 space-y-5">
+                <!-- Header Title -->
+                <div class="text-center space-y-1 my-2">
+                    <span class="text-xs font-bold text-emerald-400 tracking-widest uppercase">Matchups Complete</span>
+                    <h1 class="text-2xl sm:text-3xl font-black text-white">Your Weekly Picks</h1>
+                    <p class="text-xs text-slate-400">Review all your chosen teams ordered by game kick-off time.</p>
+                </div>
+
+                <!-- Full-Width Matchup List (Single Column of Full-Width Cards) -->
+                <div id="review-grid" class="flex flex-col space-y-3 w-full flex-1 pb-16">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Bottom Fixed Action Bar -->
+                <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex justify-center z-30">
+                    <button onclick="resetPicks()" class="w-full max-w-md py-3.5 px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-base tracking-wide shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>START OVER</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- DEPLOYMENT & GITHUB PAGES EXPORT MODAL -->
+    <div id="deploy-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-slide-up">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-brands fa-github text-emerald-400 text-xl"></i>
+                    <h3 class="font-bold text-white text-base">GitHub Pages & PWA Hosting Setup</h3>
+                </div>
+                <button onclick="toggleDeployModal(false)" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-300">
+                <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-lg p-3 text-emerald-300">
+                    <p class="font-semibold text-sm mb-1"><i class="fa-solid fa-circle-check mr-1"></i> How to host this PWA on GitHub Pages:</p>
+                    <ol class="list-decimal list-inside space-y-1 ml-1 text-slate-300">
+                        <li>Create a new public repository on GitHub (e.g., <code class="text-emerald-400">nfl-picks-pwa</code>).</li>
+                        <li>Upload all files generated below into the root of your repository.</li>
+                        <li>Go to <strong>Settings</strong> &gt; <strong>Pages</strong> and set Branch to <code class="text-emerald-400">main</code> / <code class="text-emerald-400">root</code>.</li>
+                        <li>Open the site URL on your iPhone Safari, tap <strong>Share</strong> &gt; <strong>Add to Home Screen</strong>.</li>
+                    </ol>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-200">Required PWA Files:</span>
+                        <button onclick="downloadAllPwaFiles()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-md text-xs flex items-center space-x-1.5 transition-all">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Download PWA Files Bundle</span>
+                        </button>
+                    </div>
+
+                    <!-- File List Tabs -->
+                    <div class="border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+                        <div class="flex border-b border-slate-800 bg-slate-900 overflow-x-auto">
+                            <button onclick="switchTab('manifest')" id="tab-manifest" class="px-3 py-2 font-mono text-xs border-b-2 border-emerald-500 text-emerald-400 font-bold whitespace-nowrap">manifest.json</button>
+                            <button onclick="switchTab('sw')" id="tab-sw" class="px-3 py-2 font-mono text-xs border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">sw.js</button>
+                            <button onclick="switchTab('icon')" id="tab-icon" class="px-3 py-2 font-mono text-xs border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">Icons Code</button>
+                        </div>
+                        <div class="p-3">
+                            <pre id="code-preview" class="font-mono text-[11px] text-slate-300 overflow-x-auto max-h-48 leading-relaxed whitespace-pre"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-950 flex justify-end">
+                <button onclick="toggleDeployModal(false)" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2 rounded-lg text-xs">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC -->
+    <script>
+        // NFL TEAM BRAND DATABASE (Colors, Hex Codes, Alt Names)
+        const TEAM_COLORS = {
+            'ARI': '#97233F', 'ATL': '#A71930', 'BAL': '#241773', 'BUF': '#00338D',
+            'CAR': '#0085CA', 'CHI': '#0B162A', 'CIN': '#FB4F14', 'CLE': '#311D00',
+            'DAL': '#003594', 'DEN': '#FB4F14', 'DET': '#0076B6', 'GB':  '#203731',
+            'HOU': '#03202F', 'IND': '#002C5F', 'JAX': '#006778', 'KC':  '#E31837',
+            'LAC': '#0080C6', 'LAR': '#003594', 'LV':  '#000000', 'MIA': '#008E97',
+            'MIN': '#4F2683', 'NE':  '#002244', 'NO':  '#D3BC8D', 'NYG': '#0B2265',
+            'NYJ': '#125740', 'PHI': '#004C54', 'PIT': '#FFB612', 'SEA': '#002244',
+            'SF':  '#AA0000', 'TB':  '#D50A0A', 'TEN': '#0C2340', 'WAS': '#5A1414'
+        };
+
+        // Complete Offline Fallback NFL Schedule (Realistic Data with Logos & Records)
+        const FALLBACK_SCHEDULE = [
+            { id: '101', date: new Date(Date.now() + 86400000 * 1).toISOString(), away: { abbrev: 'BUF', name: 'Buffalo Bills', record: '(8-3)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png', color: TEAM_COLORS.BUF }, home: { abbrev: 'MIA', name: 'Miami Dolphins', record: '(6-5)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png', color: TEAM_COLORS.MIA } },
+            { id: '102', date: new Date(Date.now() + 86400000 * 2).toISOString(), away: { abbrev: 'BAL', name: 'Baltimore Ravens', record: '(9-2)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png', color: TEAM_COLORS.BAL }, home: { abbrev: 'CIN', name: 'Cincinnati Bengals', record: '(5-6)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png', color: TEAM_COLORS.CIN } },
+            { id: '103', date: new Date(Date.now() + 86400000 * 3.5).toISOString(), away: { abbrev: 'KC', name: 'Kansas City Chiefs', record: '(10-1)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png', color: TEAM_COLORS.KC }, home: { abbrev: 'LV', name: 'Las Vegas Raiders', record: '(2-9)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png', color: TEAM_COLORS.LV } },
+            { id: '104', date: new Date(Date.now() + 86400000 * 3.7).toISOString(), away: { abbrev: 'GB', name: 'Green Bay Packers', record: '(8-3)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png', color: TEAM_COLORS.GB }, home: { abbrev: 'MIN', name: 'Minnesota Vikings', record: '(9-2)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png', color: TEAM_COLORS.MIN } },
+            { id: '105', date: new Date(Date.now() + 86400000 * 3.8).toISOString(), away: { abbrev: 'PHI', name: 'Philadelphia Eagles', record: '(9-2)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png', color: TEAM_COLORS.PHI }, home: { abbrev: 'DAL', name: 'Dallas Cowboys', record: '(4-7)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png', color: TEAM_COLORS.DAL } },
+            { id: '106', date: new Date(Date.now() + 86400000 * 4.2).toISOString(), away: { abbrev: 'SF', name: 'San Francisco 49ers', record: '(5-6)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png', color: TEAM_COLORS.SF }, home: { abbrev: 'SEA', name: 'Seattle Seahawks', record: '(7-4)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png', color: TEAM_COLORS.SEA } },
+            { id: '107', date: new Date(Date.now() + 86400000 * 4.9).toISOString(), away: { abbrev: 'DET', name: 'Detroit Lions', record: '(10-1)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png', color: TEAM_COLORS.DET }, home: { abbrev: 'CHI', name: 'Chicago Bears', record: '(4-7)', logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png', color: TEAM_COLORS.CHI } }
+        ];
+
+        // State Variables
+        let allGames = [];
+        let currentGameIndex = 0;
+        let userPicks = []; // Array of picked team objects per game
+        let currentWindowName = "Current Slate";
+
+        // APP INITIALIZATION
+        window.addEventListener('DOMContentLoaded', () => {
+            registerServiceWorker();
+            loadNFLSchedule();
+        });
+
+        // 1. TIME-BASED WINDOW FILTERING & ESPN API FETCH
+        async function loadNFLSchedule(forceRefresh = false) {
+            showLoader(true);
+            try {
+                // Fetch ESPN NFL Scoreboard Endpoint
+                const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard');
+                if (!res.ok) throw new Error('API fetch failed');
+                const data = await res.json();
+                
+                let rawGames = parseEspnData(data);
+                if (!rawGames.length) throw new Error('No games parsed');
+
+                // Filter games based on current time window requirement
+                allGames = filterGamesByTimeWindow(rawGames);
+            } catch (err) {
+                console.warn('Falling back to offline NFL dataset:', err);
+                allGames = filterGamesByTimeWindow(FALLBACK_SCHEDULE);
+            }
+
+            // Always reset index to 0 on initial app launch/refresh as requested
+            currentGameIndex = 0;
+            userPicks = [];
+
+            showLoader(false);
+            if (allGames.length > 0) {
+                renderCurrentGame();
+            } else {
+                document.getElementById('window-label').innerText = "No Games Scheduled";
+            }
+        }
+
+        // Parse ESPN API response structure
+        function parseEspnData(data) {
+            if (!data || !data.events) return [];
+            return data.events.map(evt => {
+                const comp = evt.competitions[0];
+                const homeComp = comp.competitors.find(c => c.homeAway === 'home');
+                const awayComp = comp.competitors.find(c => c.homeAway === 'away');
+
+                const getHexColor = (team) => {
+                    const abbrev = team.team.abbreviation;
+                    if (TEAM_COLORS[abbrev]) return TEAM_COLORS[abbrev];
+                    return '#' + (team.team.color || '1e293b');
+                };
+
+                return {
+                    id: evt.id,
+                    date: evt.date,
+                    away: {
+                        abbrev: awayComp.team.abbreviation,
+                        name: awayComp.team.displayName,
+                        record: awayComp.records ? `(${awayComp.records[0]?.summary || '0-0'})` : '(0-0)',
+                        logo: awayComp.team.logo || `https://a.espncdn.com/i/teamlogos/nfl/500/${awayComp.team.abbreviation.toLowerCase()}.png`,
+                        color: getHexColor(awayComp)
+                    },
+                    home: {
+                        abbrev: homeComp.team.abbreviation,
+                        name: homeComp.team.displayName,
+                        record: homeComp.records ? `(${homeComp.records[0]?.summary || '0-0'})` : '(0-0)',
+                        logo: homeComp.team.logo || `https://a.espncdn.com/i/teamlogos/nfl/500/${homeComp.team.abbreviation.toLowerCase()}.png`,
+                        color: getHexColor(homeComp)
+                    }
+                };
+            }).sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
+
+        /**
+         * Dynamic Matchup Windowing Rules:
+         * - Thursday before 8 PM: shows upcoming weekend schedule (Thursday to Monday).
+         * - Sunday starting 1:00 PM: filters to Sunday afternoon and Monday games.
+         * - After Monday night/Tuesday morning: switches to next week's schedule.
+         */
+        function filterGamesByTimeWindow(games) {
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 4 = Thursday...
+            const hours = now.getHours();
+
+            let windowLabel = "Weekly Matchups";
+            let filtered = games;
+
+            // Sunday starting at 1:00 PM (13:00) until Monday midnight
+            if ((dayOfWeek === 0 && hours >= 13) || dayOfWeek === 1) {
+                windowLabel = "Sun Late & Mon Slate";
+                // Keep games scheduled after Sunday 1:00 PM
+                const sundayCutoff = new Date(now);
+                if (dayOfWeek === 0) {
+                    sundayCutoff.setHours(13, 0, 0, 0);
+                } else {
+                    // If Monday, backdate cutoff to Sunday 1PM
+                    sundayCutoff.setDate(sundayCutoff.getDate() - 1);
+                    sundayCutoff.setHours(13, 0, 0, 0);
+                }
+                filtered = games.filter(g => new Date(g.date) >= sundayCutoff);
+            } 
+            // Thursday before 8:00 PM (20:00) or earlier in week
+            else if (dayOfWeek === 4 && hours < 20) {
+                windowLabel = "Full Weekend Slate";
+            }
+            // After Monday night / Tuesday / Wednesday -> Next Week Slate
+            else if (dayOfWeek === 2 || dayOfWeek === 3) {
+                windowLabel = "Upcoming Week Slate";
+            }
+
+            document.getElementById('window-label').innerText = windowLabel;
+            
+            // If filtering returned empty set, fallback to full games list
+            return filtered.length > 0 ? filtered : games;
+        }
+
+        // 2. RENDER CARD MATCHUP
+        function renderCurrentGame() {
+            if (currentGameIndex >= allGames.length) {
+                showReviewScreen();
+                return;
+            }
+
+            document.getElementById('matchup-view').classList.remove('hidden');
+            document.getElementById('review-view').classList.add('hidden');
+
+            const game = allGames[currentGameIndex];
+
+            // Progress text
+            document.getElementById('game-progress-text').innerText = `Game ${currentGameIndex + 1} of ${allGames.length}`;
+            
+            // Format Game Date/Time
+            const gameDate = new Date(game.date);
+            const timeOpts = { weekday: 'short', hour: 'numeric', minute: '2-digit' };
+            document.getElementById('game-time-text').innerText = gameDate.toLocaleDateString('en-US', timeOpts);
+
+            // Populate Away Team
+            document.getElementById('away-bg').style.backgroundColor = game.away.color;
+            document.getElementById('away-logo').src = game.away.logo;
+            document.getElementById('away-name').innerText = game.away.name;
+            document.getElementById('away-record').innerText = game.away.record;
+
+            // Populate Home Team
+            document.getElementById('home-bg').style.backgroundColor = game.home.color;
+            document.getElementById('home-logo').src = game.home.logo;
+            document.getElementById('home-name').innerText = game.home.name;
+            document.getElementById('home-record').innerText = game.home.record;
+        }
+
+        // 3. PICK SELECTION & PULSE ANIMATION
+        function handlePick(side, event) {
+            const game = allGames[currentGameIndex];
+            const chosenTeam = side === 'away' ? game.away : game.home;
+
+            // Trigger Pulse Wave Effect at click coordinates
+            triggerPulseAnimation(event, side);
+
+            // Store user pick
+            userPicks.push({
+                game: game,
+                chosen: chosenTeam,
+                side: side
+            });
+
+            // Transition immediately after pulse animation
+            setTimeout(() => {
+                currentGameIndex++;
+                renderCurrentGame();
+            }, 250);
+        }
+
+        function triggerPulseAnimation(event, side) {
+            const card = document.getElementById(`${side}-card`);
+            const rect = card.getBoundingClientRect();
+            
+            const pulse = document.createElement('div');
+            pulse.className = 'pulse-wave animate-pulse-ring';
+            
+            // Calculate relative click position or center if keyboard/touch
+            const x = event.clientX ? (event.clientX - rect.left - 75) : (rect.width / 2 - 75);
+            const y = event.clientY ? (event.clientY - rect.top - 75) : (rect.height / 2 - 75);
+
+            pulse.style.left = `${x}px`;
+            pulse.style.top = `${y}px`;
+
+            card.appendChild(pulse);
+            setTimeout(() => pulse.remove(), 600);
+        }
+
+        // 4. FINAL REVIEW SCREEN
+        function showReviewScreen() {
+            document.getElementById('matchup-view').classList.add('hidden');
+            const reviewView = document.getElementById('review-view');
+            reviewView.classList.remove('hidden');
+
+            const grid = document.getElementById('review-grid');
+            grid.innerHTML = '';
+
+            userPicks.forEach((pick, i) => {
+                const game = pick.game;
+                const dateStr = new Date(game.date).toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+
+                const card = document.createElement('div');
+                card.className = "w-full bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 sm:p-4 flex flex-col space-y-2.5 shadow-lg animate-fade-in";
+
+                const isAwayChosen = pick.side === 'away';
+                const isHomeChosen = pick.side === 'home';
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between text-xs text-slate-400 font-semibold border-b border-slate-800/80 pb-2">
+                        <span class="flex items-center space-x-1.5">
+                            <span class="bg-slate-800 text-slate-300 font-bold px-2 py-0.5 rounded text-[10px]">GAME ${i + 1}</span>
+                            <span>${game.away.abbrev} vs ${game.home.abbrev}</span>
+                        </span>
+                        <span class="text-slate-300 font-medium">${dateStr}</span>
+                    </div>
+
+                    <!-- Matchup Row: 2 Column Layout (Left: Away, Right: Home) -->
+                    <div class="grid grid-cols-2 gap-3 w-full my-1">
+                        <!-- Away Team Column -->
+                        <div class="relative flex flex-col sm:flex-row items-center justify-center sm:justify-start p-3 sm:p-4 rounded-xl transition-all ${isAwayChosen ? 'bg-emerald-950/50 border-2 border-emerald-500 shadow-md shadow-emerald-500/10' : 'bg-slate-800/30 border border-slate-800/80 opacity-50'}">
+                            ${isAwayChosen ? '<div class="absolute -top-2 -right-2 bg-emerald-500 text-slate-950 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shadow-lg"><i class="fa-solid fa-check"></i></div>' : ''}
+                            <img src="${game.away.logo}" alt="${game.away.name}" class="w-12 h-12 sm:w-16 sm:h-16 object-contain mb-1.5 sm:mb-0 sm:mr-3">
+                            <div class="text-center sm:text-left">
+                                <span class="text-xs uppercase font-bold text-slate-400 block text-[10px]">AWAY</span>
+                                <h3 class="text-xs sm:text-base font-extrabold text-white leading-snug">${game.away.name}</h3>
+                                <p class="text-[11px] text-slate-400 font-medium">${game.away.record}</p>
+                            </div>
+                        </div>
+
+                        <!-- Home Team Column -->
+                        <div class="relative flex flex-col sm:flex-row items-center justify-center sm:justify-start p-3 sm:p-4 rounded-xl transition-all ${isHomeChosen ? 'bg-emerald-950/50 border-2 border-emerald-500 shadow-md shadow-emerald-500/10' : 'bg-slate-800/30 border border-slate-800/80 opacity-50'}">
+                            ${isHomeChosen ? '<div class="absolute -top-2 -right-2 bg-emerald-500 text-slate-950 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shadow-lg"><i class="fa-solid fa-check"></i></div>' : ''}
+                            <img src="${game.home.logo}" alt="${game.home.name}" class="w-12 h-12 sm:w-16 sm:h-16 object-contain mb-1.5 sm:mb-0 sm:mr-3">
+                            <div class="text-center sm:text-left">
+                                <span class="text-xs uppercase font-bold text-slate-400 block text-[10px]">HOME</span>
+                                <h3 class="text-xs sm:text-base font-extrabold text-white leading-snug">${game.home.name}</h3>
+                                <p class="text-[11px] text-slate-400 font-medium">${game.home.record}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // RESET PICK SESSION
+        function resetPicks() {
+            currentGameIndex = 0;
+            userPicks = [];
+            renderCurrentGame();
+        }
+
+        function showLoader(show) {
+            document.getElementById('loader').style.display = show ? 'flex' : 'none';
+        }
+
+        // 5. GITHUB PAGES & PWA GENERATOR MODAL LOGIC
+        function toggleDeployModal(show) {
+            const modal = document.getElementById('deploy-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                switchTab('manifest');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        const PWA_FILES = {
+            manifest: JSON.stringify({
+                "short_name": "NFL Picks",
+                "name": "NFL Matchup Picker PWA",
+                "icons": [
+                    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
+                    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" }
+                ],
+                "start_url": "./index.html",
+                "background_color": "#0b0f19",
+                "theme_color": "#0f172a",
+                "display": "standalone",
+                "orientation": "portrait"
+            }, null, 2),
+
+            sw: `// Service Worker for Offline NFL Matchup Picker PWA
+const CACHE_NAME = 'nfl-picks-v1';
+const ASSETS = [
+    './',
+    './index.html',
+    './manifest.json',
+    'https://cdn.tailwindcss.com',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
+];
+
+self.addEventListener('install', (e) => {
+    e.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    );
+});
+
+self.addEventListener('fetch', (e) => {
+    e.respondWith(
+        caches.match(e.request).then((res) => res || fetch(e.request))
+    );
+});`,
+
+            icon: `<!-- Create icon-192.png and icon-512.png using SVG or any image editor -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+    <rect width="512" height="512" rx="100" fill="#0b0f19"/>
+    <circle cx="256" cy="256" r="180" fill="#1e293b" stroke="#10b981" stroke-width="16"/>
+    <path d="M256 120 L360 360 L152 360 Z" fill="#10b981"/>
+    <text x="256" y="280" font-family="sans-serif" font-size="72" font-weight="900" fill="#ffffff" text-anchor="middle">NFL</text>
+</svg>`
+        };
+
+        function switchTab(tabKey) {
+            ['manifest', 'sw', 'icon'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tabKey) {
+                    btn.className = "px-3 py-2 font-mono text-xs border-b-2 border-emerald-500 text-emerald-400 font-bold whitespace-nowrap";
+                } else {
+                    btn.className = "px-3 py-2 font-mono text-xs border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap";
+                }
+            });
+            document.getElementById('code-preview').innerText = PWA_FILES[tabKey];
+        }
+
+        function downloadAllPwaFiles() {
+            downloadFile('manifest.json', PWA_FILES.manifest, 'application/json');
+            downloadFile('sw.js', PWA_FILES.sw, 'application/javascript');
+            downloadFile('icon.svg', PWA_FILES.icon, 'image/svg+xml');
+        }
+
+        function downloadFile(filename, text, type) {
+            const blob = new Blob([text], { type: type });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        // Register Service Worker for PWA
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('./sw.js').catch(() => {
+                    console.log('SW registration skipped (preview context)');
+                });
+            }
+        }
+    </script>
+</body>
+</html>
