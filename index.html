@@ -94,11 +94,6 @@
             <span id="window-label" class="text-xs font-semibold text-gray-200 backdrop-blur-md bg-black/40 px-2.5 py-1 rounded-md border border-white/10">Loading Week...</span>
         </div>
         <div class="flex items-center space-x-2">
-            <!-- PWA Files Download / GitHub Pages Instructions Button -->
-            <button onclick="toggleDeployModal(true)" class="p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white text-xs flex items-center space-x-1.5 border border-white/10 backdrop-blur-md transition-all active:scale-95" title="GitHub Pages & PWA Files">
-                <i class="fa-solid fa-code-branch text-emerald-400"></i>
-                <span class="text-xs font-medium hidden sm:inline">GH Pages Setup</span>
-            </button>
             <!-- Refresh Schedule Button -->
             <button onclick="loadNFLSchedule(true)" class="p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white border border-white/10 backdrop-blur-md transition-all active:scale-95" title="Refresh Live Schedule">
                 <i class="fa-solid fa-arrows-rotate text-xs"></i>
@@ -133,7 +128,10 @@
                 
                 <div class="relative z-10 flex flex-col items-center text-center space-y-3 pointer-events-none transform transition-transform duration-200">
                     <span class="text-xs uppercase tracking-widest font-extrabold text-white/70 bg-black/30 px-3 py-1 rounded-full border border-white/10">Away</span>
-                    <img id="away-logo" src="" alt="Away Team" class="w-28 h-28 sm:w-36 sm:h-36 object-contain drop-shadow-2xl max-h-[35vh]">
+                    <!-- Solid white rounded square box for maximum logo visibility -->
+                    <div class="p-[5px] rounded-xl bg-white shadow-md flex items-center justify-center">
+                        <img id="away-logo" src="" alt="Away Team" class="w-24 h-24 sm:w-32 sm:h-32 object-contain filter drop-shadow max-h-[30vh]">
+                    </div>
                     <div class="space-y-1">
                         <h2 id="away-name" class="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">Away Team</h2>
                         <p id="away-record" class="text-sm sm:text-base font-semibold text-white/80">(0-0)</p>
@@ -159,7 +157,10 @@
                         <h2 id="home-name" class="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">Home Team</h2>
                         <p id="home-record" class="text-sm sm:text-base font-semibold text-white/80">(0-0)</p>
                     </div>
-                    <img id="home-logo" src="" alt="Home Team" class="w-28 h-28 sm:w-36 sm:h-36 object-contain drop-shadow-2xl max-h-[35vh]">
+                    <!-- Solid white rounded square box for maximum logo visibility -->
+                    <div class="p-[5px] rounded-xl bg-white shadow-md flex items-center justify-center">
+                        <img id="home-logo" src="" alt="Home Team" class="w-24 h-24 sm:w-32 sm:h-32 object-contain filter drop-shadow max-h-[30vh]">
+                    </div>
                     <span class="text-xs uppercase tracking-widest font-extrabold text-white/70 bg-black/30 px-3 py-1 rounded-full border border-white/10">Home</span>
                 </div>
             </button>
@@ -190,59 +191,6 @@
             </div>
         </div>
     </main>
-
-    <!-- DEPLOYMENT & GITHUB PAGES EXPORT MODAL -->
-    <div id="deploy-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-slide-up">
-            <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-brands fa-github text-emerald-400 text-xl"></i>
-                    <h3 class="font-bold text-white text-base">GitHub Pages & PWA Hosting Setup</h3>
-                </div>
-                <button onclick="toggleDeployModal(false)" class="text-slate-400 hover:text-white p-1">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-            
-            <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-300">
-                <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-lg p-3 text-emerald-300">
-                    <p class="font-semibold text-sm mb-1"><i class="fa-solid fa-circle-check mr-1"></i> How to host this PWA on GitHub Pages:</p>
-                    <ol class="list-decimal list-inside space-y-1 ml-1 text-slate-300">
-                        <li>Create a new public repository on GitHub (e.g., <code class="text-emerald-400">nfl-picks-pwa</code>).</li>
-                        <li>Upload all files generated below into the root of your repository.</li>
-                        <li>Go to <strong>Settings</strong> &gt; <strong>Pages</strong> and set Branch to <code class="text-emerald-400">main</code> / <code class="text-emerald-400">root</code>.</li>
-                        <li>Open the site URL on your iPhone Safari, tap <strong>Share</strong> &gt; <strong>Add to Home Screen</strong>.</li>
-                    </ol>
-                </div>
-
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="font-bold text-slate-200">Required PWA Files:</span>
-                        <button onclick="downloadAllPwaFiles()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-md text-xs flex items-center space-x-1.5 transition-all">
-                            <i class="fa-solid fa-download"></i>
-                            <span>Download PWA Files Bundle</span>
-                        </button>
-                    </div>
-
-                    <!-- File List Tabs -->
-                    <div class="border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
-                        <div class="flex border-b border-slate-800 bg-slate-900 overflow-x-auto">
-                            <button onclick="switchTab('manifest')" id="tab-manifest" class="px-3 py-2 font-mono text-xs border-b-2 border-emerald-500 text-emerald-400 font-bold whitespace-nowrap">manifest.json</button>
-                            <button onclick="switchTab('sw')" id="tab-sw" class="px-3 py-2 font-mono text-xs border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">sw.js</button>
-                            <button onclick="switchTab('icon')" id="tab-icon" class="px-3 py-2 font-mono text-xs border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">Icons Code</button>
-                        </div>
-                        <div class="p-3">
-                            <pre id="code-preview" class="font-mono text-[11px] text-slate-300 overflow-x-auto max-h-48 leading-relaxed whitespace-pre"></pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-4 border-t border-slate-800 bg-slate-950 flex justify-end">
-                <button onclick="toggleDeployModal(false)" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2 rounded-lg text-xs">Close</button>
-            </div>
-        </div>
-    </div>
 
     <!-- APPLICATION LOGIC -->
     <script>
@@ -280,6 +228,17 @@
             registerServiceWorker();
             loadNFLSchedule();
         });
+
+        // Helper to toggle loader display state
+        function showLoader(visible) {
+            const loader = document.getElementById('loader');
+            if (!loader) return;
+            if (visible) {
+                loader.classList.remove('hidden');
+            } else {
+                loader.classList.add('hidden');
+            }
+        }
 
         // 1. TIME-BASED WINDOW FILTERING & ESPN API FETCH
         async function loadNFLSchedule(forceRefresh = false) {
@@ -496,7 +455,9 @@
                         <!-- Away Team Column -->
                         <div class="relative flex flex-col sm:flex-row items-center justify-center sm:justify-start p-3 sm:p-4 rounded-xl transition-all ${isAwayChosen ? 'bg-emerald-950/50 border-2 border-emerald-500 shadow-md shadow-emerald-500/10' : 'bg-slate-800/30 border border-slate-800/80 opacity-50'}">
                             ${isAwayChosen ? '<div class="absolute -top-2 -right-2 bg-emerald-500 text-slate-950 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shadow-lg"><i class="fa-solid fa-check"></i></div>' : ''}
-                            <img src="${game.away.logo}" alt="${game.away.name}" class="w-12 h-12 sm:w-16 sm:h-16 object-contain mb-1.5 sm:mb-0 sm:mr-3">
+                            <div class="p-[5px] rounded-xl bg-white shadow-md mb-1.5 sm:mb-0 sm:mr-3 flex items-center justify-center shrink-0">
+                                <img src="${game.away.logo}" alt="${game.away.name}" class="w-10 h-10 sm:w-12 sm:h-12 object-contain filter drop-shadow">
+                            </div>
                             <div class="text-center sm:text-left">
                                 <span class="text-xs uppercase font-bold text-slate-400 block text-[10px]">AWAY</span>
                                 <h3 class="text-xs sm:text-base font-extrabold text-white leading-snug">${game.away.name}</h3>
@@ -507,7 +468,9 @@
                         <!-- Home Team Column -->
                         <div class="relative flex flex-col sm:flex-row items-center justify-center sm:justify-start p-3 sm:p-4 rounded-xl transition-all ${isHomeChosen ? 'bg-emerald-950/50 border-2 border-emerald-500 shadow-md shadow-emerald-500/10' : 'bg-slate-800/30 border border-slate-800/80 opacity-50'}">
                             ${isHomeChosen ? '<div class="absolute -top-2 -right-2 bg-emerald-500 text-slate-950 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shadow-lg"><i class="fa-solid fa-check"></i></div>' : ''}
-                            <img src="${game.home.logo}" alt="${game.home.name}" class="w-12 h-12 sm:w-16 sm:h-16 object-contain mb-1.5 sm:mb-0 sm:mr-3">
+                            <div class="p-[5px] rounded-xl bg-white shadow-md mb-1.5 sm:mb-0 sm:mr-3 flex items-center justify-center shrink-0">
+                                <img src="${game.home.logo}" alt="${game.home.name}" class="w-10 h-10 sm:w-12 sm:h-12 object-contain filter drop-shadow">
+                            </div>
                             <div class="text-center sm:text-left">
                                 <span class="text-xs uppercase font-bold text-slate-400 block text-[10px]">HOME</span>
                                 <h3 class="text-xs sm:text-base font-extrabold text-white leading-snug">${game.home.name}</h3>
@@ -521,107 +484,28 @@
             });
         }
 
-        // RESET PICK SESSION
+        // 5. RESET PICKS & START OVER
         function resetPicks() {
             currentGameIndex = 0;
             userPicks = [];
             renderCurrentGame();
         }
 
-        function showLoader(show) {
-            document.getElementById('loader').style.display = show ? 'flex' : 'none';
-        }
-
-        // 5. GITHUB PAGES & PWA GENERATOR MODAL LOGIC
-        function toggleDeployModal(show) {
-            const modal = document.getElementById('deploy-modal');
-            if (show) {
-                modal.classList.remove('hidden');
-                switchTab('manifest');
-            } else {
-                modal.classList.add('hidden');
-            }
-        }
-
-        const PWA_FILES = {
-            manifest: JSON.stringify({
-                "short_name": "NFL Picks",
-                "name": "NFL Matchup Picker PWA",
-                "icons": [
-                    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
-                    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" }
-                ],
-                "start_url": "./index.html",
-                "background_color": "#0b0f19",
-                "theme_color": "#0f172a",
-                "display": "standalone",
-                "orientation": "portrait"
-            }, null, 2),
-
-            sw: `// Service Worker for Offline NFL Matchup Picker PWA
-const CACHE_NAME = 'nfl-picks-v1';
-const ASSETS = [
-    './',
-    './index.html',
-    './manifest.json',
-    'https://cdn.tailwindcss.com',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
-];
-
-self.addEventListener('install', (e) => {
-    e.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-    );
-});
-
-self.addEventListener('fetch', (e) => {
-    e.respondWith(
-        caches.match(e.request).then((res) => res || fetch(e.request))
-    );
-});`,
-
-            icon: `<!-- Create icon-192.png and icon-512.png using SVG or any image editor -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-    <rect width="512" height="512" rx="100" fill="#0b0f19"/>
-    <circle cx="256" cy="256" r="180" fill="#1e293b" stroke="#10b981" stroke-width="16"/>
-    <path d="M256 120 L360 360 L152 360 Z" fill="#10b981"/>
-    <text x="256" y="280" font-family="sans-serif" font-size="72" font-weight="900" fill="#ffffff" text-anchor="middle">NFL</text>
-</svg>`
-        };
-
-        function switchTab(tabKey) {
-            ['manifest', 'sw', 'icon'].forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                if (t === tabKey) {
-                    btn.className = "px-3 py-2 font-mono text-xs border-b-2 border-emerald-500 text-emerald-400 font-bold whitespace-nowrap";
-                } else {
-                    btn.className = "px-3 py-2 font-mono text-xs border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap";
-                }
-            });
-            document.getElementById('code-preview').innerText = PWA_FILES[tabKey];
-        }
-
-        function downloadAllPwaFiles() {
-            downloadFile('manifest.json', PWA_FILES.manifest, 'application/json');
-            downloadFile('sw.js', PWA_FILES.sw, 'application/javascript');
-            downloadFile('icon.svg', PWA_FILES.icon, 'image/svg+xml');
-        }
-
-        function downloadFile(filename, text, type) {
-            const blob = new Blob([text], { type: type });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(link.href);
-        }
-
-        // Register Service Worker for PWA
+        // 6. SERVICE WORKER REGISTRATION
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js').catch(() => {
-                    console.log('SW registration skipped (preview context)');
-                });
+                const swCode = `
+                    const CACHE_NAME = 'nfl-picks-v1';
+                    self.addEventListener('install', (e) => {
+                        e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(['./'])));
+                    });
+                    self.addEventListener('fetch', (e) => {
+                        e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch((err) => console.log('SW registration skipped:', err));
             }
         }
     </script>
