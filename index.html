@@ -3,18 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
     <title>NFL Matchup Picker</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        body {
+        html, body {
+            height: 100%;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
+            background-color: #020617;
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             -webkit-user-select: none;
-            background-color: #020617;
+            overflow: hidden;
         }
+
         /* Custom pulse animation for selection */
         @keyframes teamPulse {
             0% { transform: scale(1); filter: brightness(1); }
@@ -26,17 +35,17 @@
         }
         /* Safe area padding utilities */
         .pt-safe {
-            padding-top: max(env(safe-area-inset-top), 1.25rem);
+            padding-top: max(env(safe-area-inset-top), 2.5rem);
         }
         .pb-safe {
             padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
         }
     </style>
 </head>
-<body class="bg-slate-950 text-white h-full overflow-x-hidden flex flex-col m-0 p-0">
+<body class="bg-slate-950 text-white w-full h-full">
 
     <!-- App Container -->
-    <div id="app" class="flex-1 flex flex-col w-full h-full">
+    <div id="app" class="w-full h-full flex flex-col">
         <!-- Dynamic content will be injected here -->
     </div>
 
@@ -84,284 +93,141 @@
             "WAS": { name: "Washington Commanders", city: "Washington", color: "#5A1414", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/was.png" }
         };
 
-        let currentWeekGames = [];
+        let currentGames = [];
         let currentGameIndex = 0;
-        let userPicks = {}; // gameId -> chosenTeam ('home' or 'away')
+        let userPicks = [];
 
-        function showLoader(visible, isError = false, errorMessage = "") {
-            const loader = document.getElementById('loader');
-            const spinner = document.getElementById('loader-spinner');
-            const text = document.getElementById('loader-text');
-            const retryBtn = document.getElementById('loader-retry');
-            
+        function showLoader(visible, text = "Loading NFL Matchups...", showRetry = false) {
+            const loader = document.getElementById("loader");
+            const loaderText = document.getElementById("loader-text");
+            const loaderSpinner = document.getElementById("loader-spinner");
+            const loaderRetry = document.getElementById("loader-retry");
+
             if (visible) {
-                loader.classList.remove('hidden');
-                if (isError) {
-                    spinner.classList.add('hidden');
-                    text.textContent = errorMessage || "Unable to load NFL schedule.";
-                    retryBtn.classList.remove('hidden');
-                } else {
-                    spinner.classList.remove('hidden');
-                    text.textContent = "Loading NFL Matchups...";
-                    retryBtn.classList.add('hidden');
-                }
+                loaderText.innerText = text;
+                loaderSpinner.style.display = showRetry ? "none" : "block";
+                loaderRetry.classList.toggle("hidden", !showRetry);
+                loader.classList.remove("hidden");
             } else {
-                loader.classList.add('hidden');
+                loader.classList.add("hidden");
             }
         }
 
+        function updateThemeColor(color) {
+            let metaTheme = document.querySelector('meta[name="theme-color"]');
+            if (metaTheme) metaTheme.setAttribute('content', color);
+        }
+
         async function loadNFLSchedule() {
-            showLoader(true);
+            showLoader(true, "Fetching live schedule...");
             try {
-                const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard');
-                if (!res.ok) throw new Error('Network response was not ok');
+                const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard");
+                if (!res.ok) throw new Error("HTTP error " + res.status);
                 const data = await res.json();
                 
-                const events = data.events || [];
-                if (events.length === 0) throw new Error('No games found');
+                const rawEvents = data.events || [];
+                const parsedGames = rawEvents.map(evt => {
+                    const comp = evt.competitions[0];
+                    const homeCompetitor = comp.competitors.find(c => c.homeAway === 'home');
+                    const awayCompetitor = comp.competitors.find(c => c.homeAway === 'away');
 
-                currentWeekGames = events.map(ev => {
-                    const comp = ev.competitions[0];
-                    const homeTeamData = comp.competitors.find(c => c.homeAway === 'home');
-                    const awayTeamData = comp.competitors.find(c => c.homeAway === 'away') || comp.competitors.find(c => c.homeAway === 'away');
+                    const homeAbbr = homeCompetitor.team.abbreviation;
+                    const awayAbbr = awayCompetitor.team.abbreviation;
 
-                    const homeAbbr = homeTeamData.team.abbreviation;
-                    const awayAbbr = awayTeamData.team.abbreviation;
+                    const homeInfo = NFL_TEAMS[homeAbbr] || {
+                        name: homeCompetitor.team.displayName,
+                        city: homeCompetitor.team.location,
+                        color: "#1e293b",
+                        logo: homeCompetitor.team.logo
+                    };
+
+                    const awayInfo = NFL_TEAMS[awayAbbr] || {
+                        name: awayCompetitor.team.displayName,
+                        city: awayCompetitor.team.location,
+                        color: "#0f172a",
+                        logo: awayCompetitor.team.logo
+                    };
+
+                    const startDate = new Date(evt.date);
 
                     return {
-                        id: ev.id,
-                        date: new Date(ev.date),
-                        timeFormatted: new Date(ev.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+                        id: evt.id,
+                        date: startDate,
+                        dateFormatted: startDate.toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }),
                         home: {
-                            abbr: homeAbbr,
-                            name: homeTeamData.team.name || NFL_TEAMS[homeAbbr]?.name || homeAbbr,
-                            city: homeTeamData.team.location || NFL_TEAMS[homeAbbr]?.city || "",
-                            record: homeTeamData.records?.[0]?.summary || "0-0",
-                            color: NFL_TEAMS[homeAbbr]?.color || "#1e293b",
-                            logo: NFL_TEAMS[homeAbbr]?.logo || homeTeamData.team.logo
-                        },
-                        away: {
-                            abbr: awayAbbr,
-                            name: awayTeamData.team.name || NFL_TEAMS[awayAbbr]?.name || awayAbbr,
-                            city: awayTeamData.team.location || NFL_TEAMS[awayAbbr]?.city || "",
-                            record: awayTeamData.records?.[0]?.summary || "0-0",
-                            color: NFL_TEAMS[awayAbbr]?.color || "#334155",
-                            logo: NFL_TEAMS[awayAbbr]?.logo || awayTeamData.team.logo
+                            ...homeInfo,
+                            record: homeCompetitor.records?.[0]?.summary ? `(${homeCompetitor.records[0].summary})` : "" }, away: { ...awayInfo, record: awayCompetitor.records?.[0]?.summary ? `(${awayCompetitor.records[0].summary})` : ""
                         }
                     };
                 });
 
+                // Filter logic based on current day/time window
                 const now = new Date();
-                const currentDay = now.getDay();
+                const dayOfWeek = now.getDay(); // 0 = Sun, 4 = Thu
                 const currentHour = now.getHours();
 
-                let filtered = currentWeekGames.filter(g => {
-                    const gDay = g.date.getDay();
-                    const gHour = g.date.getHours();
-
-                    if (currentDay === 4 && currentHour < 20) {
-                        return gDay !== 4;
-                    } else if (currentDay === 0 && currentHour < 13) {
-                        return (gDay === 0 && gHour >= 13) || gDay === 1;
+                currentGames = parsedGames.filter(game => {
+                    const gameDay = game.date.getDay();
+                    if (dayOfWeek >= 4 && (dayOfWeek !== 4 || currentHour >= 20)) {
+                        return gameDay >= 4 || gameDay <= 1;
+                    } else if (dayOfWeek === 0 && currentHour >= 13) {
+                        return gameDay === 0 || gameDay === 1;
                     }
                     return true;
                 });
 
-                if (filtered.length === 0) {
-                    filtered = currentWeekGames;
-                }
+                if (currentGames.length === 0) currentGames = parsedGames;
 
-                filtered.sort((a, b) => a.date - b.date);
-                currentWeekGames = filtered;
+                currentGames.sort((a, b) => a.date - b.date);
+                
                 currentGameIndex = 0;
-                userPicks = {};
-
+                userPicks = [];
                 showLoader(false);
-                renderCurrentMatchup();
+                renderMatchup();
 
             } catch (err) {
-                console.warn("Using offline mock schedule due to fetch error:", err);
-                loadMockSchedule();
+                console.error(err);
+                showLoader(true, "Unable to load schedule. Please check connection.", true);
             }
         }
 
-        function loadMockSchedule() {
-            currentWeekGames = [
-                {
-                    id: "1",
-                    date: new Date(Date.now() + 3600000),
-                    timeFormatted: "Thu 8:15 PM",
-                    away: { abbr: "CAR", name: "Panthers", city: "Carolina", record: "3-3", color: "#0085CA", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/car.png" },
-                    home: { abbr: "GB", name: "Packers", city: "Green Bay", record: "4-3", color: "#203731", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png" }
-                },
-                {
-                    id: "2",
-                    date: new Date(Date.now() + 86400000),
-                    timeFormatted: "Sun 1:00 PM",
-                    away: { abbr: "KC", name: "Chiefs", city: "Kansas City", record: "6-1", color: "#E31837", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png" },
-                    home: { abbr: "BUF", name: "Bills", city: "Buffalo", record: "5-2", color: "#00338D", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png" }
-                },
-                {
-                    id: "3",
-                    date: new Date(Date.now() + 90000000),
-                    timeFormatted: "Sun 4:25 PM",
-                    away: { abbr: "SF", name: "49ers", city: "San Francisco", record: "4-3", color: "#AA0000", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png" },
-                    home: { abbr: "DAL", name: "Cowboys", city: "Dallas", record: "5-2", color: "#003594", logo: "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png" }
-                }
-            ];
-            currentGameIndex = 0;
-            userPicks = {};
-            showLoader(false);
-            renderCurrentMatchup();
-        }
-
-        function renderCurrentMatchup() {
-            if (currentGameIndex >= currentWeekGames.length) {
-                renderReviewScreen();
+        function renderMatchup() {
+            if (currentGameIndex >= currentGames.length) {
+                showReviewScreen();
                 return;
             }
 
-            const game = currentWeekGames[currentGameIndex];
-            const total = currentWeekGames.length;
+            const game = currentGames[currentGameIndex];
+            const app = document.getElementById("app");
+            
+            updateThemeColor(game.away.color);
 
-            const html = `
-                <div class="flex-1 flex flex-col w-full h-full min-h-screen">
-                    <!-- Away Team Half (Top) -->
-                    <div id="away-half" onclick="makePick('${game.id}', 'away')" 
-                         class="flex-1 flex flex-col items-center justify-center p-6 relative cursor-pointer transition-all duration-200 pt-safe"
-                         style="background-color: ${game.away.color};">
-                        
-                        <!-- Top status and counter -->
-                        <div class="absolute top-3 inset-x-0 flex justify-center items-center pointer-events-none pt-safe">
-                            <div class="bg-black/40 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-semibold text-white/90 border border-white/10 shadow-sm">
-                                Game ${currentGameIndex + 1} of ${total} &nbsp;|&nbsp; ${game.timeFormatted}
+            app.innerHTML = `
+                <div class="w-full h-full flex flex-col min-h-[100dvh]">
+                    <!-- Away Team (Top) -->
+                    <div id="away-btn" onclick="makePick('away')" class="flex-1 flex flex-col items-center justify-between pt-safe pb-4 px-6 text-center transition-all cursor-pointer relative overflow-hidden" style="background-color: ${game.away.color}">
+                        <div class="w-full flex justify-center z-10 mb-2">
+                            <span class="bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider text-slate-200 shadow-md">
+                                Game ${currentGameIndex + 1} of ${currentGames.length} &nbsp;\vert{}&nbsp; ${game.dateFormatted}
+                            </span>
+                        </div>
+                        <div class="flex flex-col items-center z-10 my-auto">
+                            <span class="text-xs uppercase tracking-widest font-extrabold text-white/70 mb-2">AWAY</span>
+                            <div class="w-28 h-28 p-[5px] rounded-xl bg-white shadow-md flex items-center justify-center mb-4">
+                                <img src="${game.away.logo}" class="max-w-full max-h-full object-contain" alt="${game.away.name}">
                             </div>
+                            <h2 class="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-md">${game.away.name}</h2>
+                            <p class="text-white/80 font-medium text-sm mt-1">${game.away.record}</p>
                         </div>
-
-                        <div class="absolute top-14 uppercase tracking-widest text-[11px] font-bold text-white/70 bg-black/30 px-3 py-0.5 rounded-full backdrop-blur-sm mt-3">
-                            AWAY
-                        </div>
-
-                        <!-- Logo with solid white rounded square padding -->
-                        <div class="bg-white rounded-2xl shadow-xl p-[5px] mb-2 mt-6 w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
-                            <img src="${game.away.logo}" alt="${game.away.name}" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/100x100/eee/333?text=${game.away.abbr}'">
-                        </div>
-
-                        <h2 class="text-2xl sm:text-3xl font-black text-white text-center drop-shadow-md">
-                            ${game.away.city} ${game.away.name}
-                        </h2>
-                        <p class="text-white/80 font-medium text-sm mt-0.5">(${game.away.record})</p>
+                        <div class="h-4 z-10"></div>
                     </div>
 
-                    <!-- Versus Divider Pill -->
-                    <div class="relative h-0 flex items-center justify-center z-10 pointer-events-none">
-                        <div class="w-10 h-10 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center shadow-lg text-xs font-bold text-slate-300">
+                    <!-- VS Divider -->
+                    <div class="relative z-20 flex justify-center items-center h-0">
+                        <div class="bg-slate-900 border-2 border-slate-700 text-white text-xs font-black rounded-full w-10 h-10 flex items-center justify-center shadow-xl">
                             VS
                         </div>
                     </div>
 
-                    <!-- Home Team Half (Bottom) -->
-                    <div id="home-half" onclick="makePick('${game.id}', 'home')" 
-                         class="flex-1 flex flex-col items-center justify-center p-6 relative cursor-pointer transition-all duration-200 pb-safe"
-                         style="background-color: ${game.home.color};">
-                        
-                        <div class="absolute top-6 uppercase tracking-widest text-[11px] font-bold text-white/70 bg-black/30 px-3 py-0.5 rounded-full backdrop-blur-sm">
-                            HOME
-                        </div>
-
-                        <h2 class="text-2xl sm:text-3xl font-black text-white text-center drop-shadow-md mt-6">
-                            ${game.home.city} ${game.home.name}
-                        </h2>
-                        <p class="text-white/80 font-medium text-sm mt-0.5">(${game.home.record})</p>
-
-                        <!-- Logo with solid white rounded square padding -->
-                        <div class="bg-white rounded-2xl shadow-xl p-[5px] mt-2 mb-2 w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
-                            <img src="${game.home.logo}" alt="${game.home.name}" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/100x100/eee/333?text=${game.home.abbr}'">
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('app').innerHTML = html;
-        }
-
-        function makePick(gameId, side) {
-            userPicks[gameId] = side;
-
-            const halfEl = document.getElementById(`${side}-half`);
-            if (halfEl) {
-                halfEl.classList.add('animate-pulse-fast');
-            }
-
-            setTimeout(() => {
-                currentGameIndex++;
-                renderCurrentMatchup();
-            }, 300);
-        }
-
-        function renderReviewScreen() {
-            let listHtml = '';
-
-            currentWeekGames.forEach((game, idx) => {
-                const pick = userPicks[game.id];
-                const awayChosen = pick === 'away';
-                const homeChosen = pick === 'home';
-
-                listHtml += `
-                    <div class="w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-lg p-4 flex flex-col gap-3">
-                        <div class="text-xs font-semibold text-slate-400 text-center uppercase tracking-wider">
-                            Game ${idx + 1} &bull; ${game.timeFormatted}
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <!-- Away Team Column -->
-                            <div class="relative flex flex-col items-center p-3 rounded-xl transition ${awayChosen ? 'bg-emerald-950/50 border-2 border-emerald-500 shadow-md' : 'bg-slate-800/40 border border-slate-700/50'}">
-                                ${awayChosen ? '<div class="absolute top-2 right-2 w-6 h-6 bg-emerald-500 text-slate-950 rounded-full flex items-center justify-center font-bold text-xs shadow">✓</div>' : ''}
-                                <div class="bg-white rounded-lg p-1 shadow w-12 h-12 flex items-center justify-center mb-2">
-                                    <img src="${game.away.logo}" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/50x50/eee/333?text=${game.away.abbr}'">
-                                </div>
-                                <span class="text-xs font-bold text-slate-200 text-center line-clamp-1">${game.away.city} ${game.away.name}</span>
-                                <span class="text-[10px] text-slate-400 mt-0.5">(${game.away.record})</span>
-                            </div>
-
-                            <!-- Home Team Column -->
-                            <div class="relative flex flex-col items-center p-3 rounded-xl transition ${homeChosen ? 'bg-emerald-950/50 border-2 border-emerald-500 shadow-md' : 'bg-slate-800/40 border border-slate-700/50'}">
-                                ${homeChosen ? '<div class="absolute top-2 right-2 w-6 h-6 bg-emerald-500 text-slate-950 rounded-full flex items-center justify-center font-bold text-xs shadow">✓</div>' : ''}
-                                <div class="bg-white rounded-lg p-1 shadow w-12 h-12 flex items-center justify-center mb-2">
-                                    <img src="${game.home.logo}" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/50x50/eee/333?text=${game.home.abbr}'">
-                                </div>
-                                <span class="text-xs font-bold text-slate-200 text-center line-clamp-1">${game.home.city} ${game.home.name}</span>
-                                <span class="text-[10px] text-slate-400 mt-0.5">(${game.home.record})</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            const html = `
-                <div class="flex-1 flex flex-col w-full max-w-xl mx-auto p-4 pt-safe pb-safe overflow-y-auto">
-                    <div class="text-center my-4">
-                        <h1 class="text-2xl font-black text-white">Your Weekly Picks</h1>
-                        <p class="text-xs text-slate-400 mt-1">Review your selections ordered by kickoff time.</p>
-                    </div>
-
-                    <div class="flex flex-col gap-4 my-2">
-                        ${listHtml}
-                    </div>
-
-                    <div class="mt-6 mb-8">
-                        <button onclick="loadNFLSchedule()" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold py-4 px-6 rounded-2xl shadow-xl transition">
-                            Start Over
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('app').innerHTML = html;
-        }
-
-        window.onload = function() {
-            loadNFLSchedule();
-        };
-    </script>
-</body>
-</html>
+                    <!-- Home Team (Bottom) -->
+                    <div id="home-btn" onclick="makePick('home')" class="flex-1 flex flex-col items-center justify-between pt-4 pb
