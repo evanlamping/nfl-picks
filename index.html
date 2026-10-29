@@ -13,6 +13,7 @@
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             -webkit-user-select: none;
+            background-color: #020617;
         }
         /* Custom pulse animation for selection */
         @keyframes teamPulse {
@@ -25,14 +26,14 @@
         }
         /* Safe area padding utilities */
         .pt-safe {
-            padding-top: max(env(safe-area-inset-top), 1rem);
+            padding-top: max(env(safe-area-inset-top), 1.25rem);
         }
         .pb-safe {
             padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
         }
     </style>
 </head>
-<body class="bg-slate-950 text-white h-full overflow-x-hidden flex flex-col">
+<body class="bg-slate-950 text-white h-full overflow-x-hidden flex flex-col m-0 p-0">
 
     <!-- App Container -->
     <div id="app" class="flex-1 flex flex-col w-full h-full">
@@ -112,7 +113,6 @@
         async function loadNFLSchedule() {
             showLoader(true);
             try {
-                // Fetch current NFL scoreboard from ESPN public API
                 const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard');
                 if (!res.ok) throw new Error('Network response was not ok');
                 const data = await res.json();
@@ -123,7 +123,7 @@
                 currentWeekGames = events.map(ev => {
                     const comp = ev.competitions[0];
                     const homeTeamData = comp.competitors.find(c => c.homeAway === 'home');
-                    const awayTeamData = comp.competitors.find(c => c.awayAway === 'away') || comp.competitors.find(c => c.homeAway === 'away');
+                    const awayTeamData = comp.competitors.find(c => c.homeAway === 'away') || comp.competitors.find(c => c.homeAway === 'away');
 
                     const homeAbbr = homeTeamData.team.abbreviation;
                     const awayAbbr = awayTeamData.team.abbreviation;
@@ -151,12 +151,8 @@
                     };
                 });
 
-                // Filter games based on rule:
-                // Thursday before 8pm: shows weekend games onwards.
-                // Until Sunday at 1pm: sunday afternoon and monday games.
-                // After that: next weekend's slate.
                 const now = new Date();
-                const currentDay = now.getDay(); // 0: Sun, 4: Thu, etc.
+                const currentDay = now.getDay();
                 const currentHour = now.getHours();
 
                 let filtered = currentWeekGames.filter(g => {
@@ -164,20 +160,17 @@
                     const gHour = g.date.getHours();
 
                     if (currentDay === 4 && currentHour < 20) {
-                        // Thursday before 8 PM: show weekend games (Fri, Sat, Sun, Mon)
                         return gDay !== 4;
                     } else if (currentDay === 0 && currentHour < 13) {
-                        // Until Sunday 1 PM: show Sunday afternoon and Monday games
                         return (gDay === 0 && gHour >= 13) || gDay === 1;
                     }
-                    return true; // Default fallback to all retrieved games
+                    return true;
                 });
 
                 if (filtered.length === 0) {
-                    filtered = currentWeekGames; // Fallback to full list if filter leaves 0
+                    filtered = currentWeekGames;
                 }
 
-                // Sort by start time
                 filtered.sort((a, b) => a.date - b.date);
                 currentWeekGames = filtered;
                 currentGameIndex = 0;
@@ -193,7 +186,6 @@
         }
 
         function loadMockSchedule() {
-            // Robust offline mock fallback
             currentWeekGames = [
                 {
                     id: "1",
@@ -236,29 +228,29 @@
                 <div class="flex-1 flex flex-col w-full h-full min-h-screen">
                     <!-- Away Team Half (Top) -->
                     <div id="away-half" onclick="makePick('${game.id}', 'away')" 
-                         class="flex-1 flex flex-col items-center justify-center p-6 relative cursor-pointer transition-all duration-200"
+                         class="flex-1 flex flex-col items-center justify-center p-6 relative cursor-pointer transition-all duration-200 pt-safe"
                          style="background-color: ${game.away.color};">
                         
                         <!-- Top status and counter -->
-                        <div class="absolute top-3 inset-x-0 flex justify-center items-center pointer-events-none">
+                        <div class="absolute top-3 inset-x-0 flex justify-center items-center pointer-events-none pt-safe">
                             <div class="bg-black/40 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-semibold text-white/90 border border-white/10 shadow-sm">
                                 Game ${currentGameIndex + 1} of ${total} &nbsp;|&nbsp; ${game.timeFormatted}
                             </div>
                         </div>
 
-                        <div class="absolute top-14 uppercase tracking-widest text-[11px] font-bold text-white/70 bg-black/30 px-3 py-0.5 rounded-full backdrop-blur-sm">
+                        <div class="absolute top-14 uppercase tracking-widest text-[11px] font-bold text-white/70 bg-black/30 px-3 py-0.5 rounded-full backdrop-blur-sm mt-3">
                             AWAY
                         </div>
 
                         <!-- Logo with solid white rounded square padding -->
-                        <div class="bg-white rounded-2xl shadow-xl p-[5px] mb-3 mt-8 w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
+                        <div class="bg-white rounded-2xl shadow-xl p-[5px] mb-2 mt-6 w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
                             <img src="${game.away.logo}" alt="${game.away.name}" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/100x100/eee/333?text=${game.away.abbr}'">
                         </div>
 
                         <h2 class="text-2xl sm:text-3xl font-black text-white text-center drop-shadow-md">
                             ${game.away.city} ${game.away.name}
                         </h2>
-                        <p class="text-white/80 font-medium text-sm mt-1">(${game.away.record})</p>
+                        <p class="text-white/80 font-medium text-sm mt-0.5">(${game.away.record})</p>
                     </div>
 
                     <!-- Versus Divider Pill -->
@@ -280,10 +272,10 @@
                         <h2 class="text-2xl sm:text-3xl font-black text-white text-center drop-shadow-md mt-6">
                             ${game.home.city} ${game.home.name}
                         </h2>
-                        <p class="text-white/80 font-medium text-sm mt-1">(${game.home.record})</p>
+                        <p class="text-white/80 font-medium text-sm mt-0.5">(${game.home.record})</p>
 
                         <!-- Logo with solid white rounded square padding -->
-                        <div class="bg-white rounded-2xl shadow-xl p-[5px] mt-3 mb-4 w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
+                        <div class="bg-white rounded-2xl shadow-xl p-[5px] mt-2 mb-2 w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
                             <img src="${game.home.logo}" alt="${game.home.name}" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/100x100/eee/333?text=${game.home.abbr}'">
                         </div>
                     </div>
@@ -296,13 +288,11 @@
         function makePick(gameId, side) {
             userPicks[gameId] = side;
 
-            // Trigger pulse animation on clicked half
             const halfEl = document.getElementById(`${side}-half`);
             if (halfEl) {
                 halfEl.classList.add('animate-pulse-fast');
             }
 
-            // Immediately advance after brief animation
             setTimeout(() => {
                 currentGameIndex++;
                 renderCurrentMatchup();
@@ -313,7 +303,7 @@
             let listHtml = '';
 
             currentWeekGames.forEach((game, idx) => {
-                const pick = userPicks[game.id]; // 'home' or 'away'
+                const pick = userPicks[game.id];
                 const awayChosen = pick === 'away';
                 const homeChosen = pick === 'home';
 
@@ -369,7 +359,6 @@
             document.getElementById('app').innerHTML = html;
         }
 
-        // Initialize on load
         window.onload = function() {
             loadNFLSchedule();
         };
